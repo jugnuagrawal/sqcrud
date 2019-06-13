@@ -1,0 +1,22 @@
+{
+  "name": "sqcrud",
+  "version": "1.0.0",
+  "description": "A CRUD wrapper for sqlite3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/jugnuagrawal/sqcrud.git"
+  },
+  "author": "Jugnu Agrawal",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jugnuagrawal/sqcrud/issues"
+  },
+  "homepage": "https://github.com/jugnuagrawal/sqcrud#readme",
+  "dependencies": {
+    "sqlite3": "^4.0.8"
+  }
+}
