@@ -1,4 +1,4 @@
-
+const parser = require('where-in-json');
 /**
  * 
  * @param {string} key 
@@ -164,22 +164,8 @@ function whereClause(fields, filter) {
     if (typeof filter === 'string') {
         filter = JSON.parse(filter);
     }
-    const cols = sort.split(',');
-    const orderBy = [];
-    cols.forEach(dataKey => {
-        const temp = keyInFields(dataKey, fields);
-        if (temp) {
-            if (dataKey.startsWith('-')) {
-                orderBy.push(`${temp.key} DESC`);
-            } else {
-                orderBy.push(`${temp.key} ASC`);
-            }
-        }
-    });
-    if (orderBy.length > 0) {
-        return ' WHERE ' + orderBy.join(', ');
-    }
-    return null;
+
+    return ' WHERE ' + parser.toWhereClause(filter);
 }
 
 /**
@@ -205,7 +191,7 @@ function limitClause(count, page) {
  * @param {*} data 
  */
 function unscapeData(data) {
-    if(Array.isArray(data)){
+    if (Array.isArray(data)) {
         data.forEach(row => {
             Object.keys(row).forEach(key => row[key] = unescape(row[key]));
         });
