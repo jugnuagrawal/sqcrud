@@ -10,7 +10,7 @@ const DEFAULT_PATH = path.join(os.homedir(), 'sqcrud/db');
 
 /**
  * 
- * @param {{dbPath:string,dbname:string,tableName:string,fields:Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>}} config 
+ * @param {{dbPath:string,dbname:string,tableName:string,fields:Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>}} config Configuration for crudder
  */
 function cruder(config) {
     if (!config.dbPath) {
@@ -28,11 +28,19 @@ function cruder(config) {
     mkdirp.sync(config.dbPath);
     const db = new sqlite3.Database(path.join(config.dbPath, config.dbname + '.db'));
     db.run(`CREATE TABLE IF NOT EXISTS ${config.tableName} (${utils.createTableStatement(config.fields)})`);
-    const e = {};
-    e.db = db;
-    e.count = () => {
+
+    /**
+     *
+     * @param {*} [filter] filter for count
+     */
+    function count(filter) {
         return new Promise((resolve, reject) => {
-            db.get(`SELECT count(*) FROM ${config.tableName}`, function (err, row) {
+            const whereClause = utils.whereClause(config.fields, filter);
+            let stmt = `SELECT count(*) AS count FROM ${config.tableName}`;
+            if (whereClause) {
+                stmt += ' ' + whereClause;
+            }
+            db.get(stmt, function (err, row) {
                 if (err) {
                     reject(err);
                 } else {
@@ -41,9 +49,34 @@ function cruder(config) {
             });
         });
     };
-    e.list = () => {
+
+    /**
+     *
+     * @param {{count:number,page:number,select:string,filter:any,sort:string}} [options] Get API options
+     */
+    function list(options) {
         return new Promise((resolve, reject) => {
-            db.all(`SELECT * FROM ${config.tableName}`, function (err, rows) {
+            if (!options) {
+                options = {};
+            }
+            if (!options.count && options.count != -1) {
+                options.count = 30;
+            }
+            const selectClause = utils.selectClause(config.fields, options.select) || '*';
+            const whereClause = utils.whereClause(config.fields, options.filter);
+            const limitClause = utils.limitClause(options.count, options.page);
+            const orderByClause = utils.orderByClause(config.fields, options.sort);
+            let stmt = `SELECT ${selectClause} FROM ${config.tableName}`;
+            if (whereClause) {
+                stmt += whereClause;
+            }
+            if (limitClause) {
+                stmt += limitClause;
+            }
+            if (orderByClause) {
+                stmt += orderByClause;
+            }
+            db.all(stmt, function (err, rows) {
                 if (err) {
                     reject(err);
                 } else {
@@ -52,13 +85,19 @@ function cruder(config) {
             });
         });
     };
-    e.get = (id) => {
+    /**
+     * 
+     * @param {string} id ID if the record to get details
+     * @param {string} [select] Select fewer fields
+     */
+    function get(id, select) {
         return new Promise((resolve, reject) => {
             if (!id) {
                 reject({ message: 'No id provided to get record' });
                 return;
             }
-            db.get(`SELECT * FROM ${config.tableName} WHERE _id='${id}'`, function (err, row) {
+            const selectClause = utils.selectClause(config.fields, select) || '*';
+            db.get(`SELECT ${selectClause} FROM ${config.tableName} WHERE _id='${id}'`, function (err, row) {
                 if (err) {
                     reject(err);
                 } else {
@@ -67,7 +106,13 @@ function cruder(config) {
             });
         });
     };
-    e.put = (id, data) => {
+
+    /**
+     * 
+     * @param {string} id ID if the record to get details
+     * @param {any} data Data to update 
+     */
+    function put(id, data) {
         return new Promise((resolve, reject) => {
             const stmt = utils.updateStatement(config.fields, data);
             if (!id) {
@@ -91,7 +136,12 @@ function cruder(config) {
             });
         });
     };
-    e.post = (data) => {
+
+    /**
+     * 
+     * @param {any} data Data to store 
+     */
+    function post(data) {
         return new Promise((resolve, reject) => {
             if (!data._id) {
                 data._id = uniqueToken.token();
@@ -116,7 +166,12 @@ function cruder(config) {
             });
         });
     };
-    e.delete = (id) => {
+
+    /**
+     * 
+     * @param {string} id ID if the record to delete
+     */
+    function remove(id) {
         return new Promise((resolve, reject) => {
             if (!id) {
                 reject({ message: 'No id provided to delete record' });
@@ -135,25 +190,47 @@ function cruder(config) {
             });
         });
     };
+    const e = {
+        db: db,
+        count: count,
+        list: list,
+        get: get,
+        post: post,
+        put: put,
+        delete: remove
+    };
+
     return e;
 }
 
 
 /**
  * 
- * @param {{dbPath:string,dbname:string,tableName:string,fields:Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>}} config 
+ * @param {{dbPath:string,dbname:string,tableName:string,fields:Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>}} config Configuration for crudder
  */
 function express(config) {
     const crud = cruder(config);
     router.get('/', (req, res) => {
-        crud.list().then(rows => {
+        let method = 'list';
+        let options = {
+            filter: req.query.filter,
+            select: req.query.select,
+            count: req.query.count,
+            page: req.query.page,
+            sort: req.query.sort
+        };
+        if (req.query && req.query.countOnly) {
+            method = 'count';
+            options = req.query.filter;
+        }
+        crud[method](options).then(rows => {
             res.status(200).json(rows);
         }).catch(err => {
             res.status(500).json(err);
         });
     });
     router.get('/:id', (req, res) => {
-        crud.get(req.params.id).then(row => {
+        crud.get(req.params.id, req.query.select).then(row => {
             res.status(200).json(row);
         }).catch(err => {
             res.status(500).json(err);

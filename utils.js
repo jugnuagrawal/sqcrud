@@ -1,6 +1,15 @@
 
 /**
  * 
+ * @param {string} key 
+ * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
+ */
+function keyInFields(key, fields) {
+    return fields.find(e => e.key === key);
+}
+
+/**
+ * 
  * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
  */
 function createTableStatement(fields) {
@@ -31,7 +40,7 @@ function insertStatement(fields, data) {
     const cols = [];
     const values = [];
     Object.keys(data).forEach(dataKey => {
-        const temp = fields.find(e => e.key === dataKey);
+        const temp = keyInFields(dataKey, fields);
         if (temp) {
             cols.push(temp.key);
             if (temp.type === 'TEXT' || temp.type === 'BLOB') {
@@ -55,7 +64,7 @@ function insertStatement(fields, data) {
 function updateStatement(fields, data) {
     const sets = [];
     Object.keys(data).forEach(dataKey => {
-        const temp = fields.find(e => e.key === dataKey);
+        const temp = keyInFields(dataKey, fields);
         if (temp && dataKey !== '_id') {
             if (temp.type === 'TEXT' || temp.type === 'BLOB') {
                 sets.push(`${temp.key}='${escape(data[temp.key])}'`);
@@ -70,6 +79,131 @@ function updateStatement(fields, data) {
     return null;
 }
 
+/**
+ * 
+ * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
+ * @param {any} data
+ */
+function updateStatement(fields, data) {
+    const sets = [];
+    Object.keys(data).forEach(dataKey => {
+        const temp = keyInFields(dataKey, fields);
+        if (temp && dataKey !== '_id') {
+            if (temp.type === 'TEXT' || temp.type === 'BLOB') {
+                sets.push(`${temp.key}='${escape(data[temp.key])}'`);
+            } else {
+                sets.push(`${temp.key}=${data[temp.key]}`);
+            }
+        }
+    });
+    if (sets.length > 0) {
+        return 'SET ' + sets.join(', ');
+    }
+    return null;
+}
+
+/**
+ * 
+ * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
+ * @param {string} select
+ */
+function selectClause(fields, select) {
+    if (!select) {
+        return null;
+    }
+    const cols = select.split(',');
+    const keys = [];
+    cols.forEach(dataKey => {
+        const temp = keyInFields(dataKey, fields);
+        if (temp) {
+            keys.push(temp.key);
+        }
+    });
+    if (keys.length > 0) {
+        return keys.join(', ');
+    }
+    return null;
+}
+
+/**
+ * 
+ * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
+ * @param {string} sort 
+ */
+function orderByClause(fields, sort) {
+    if (!sort) {
+        return null;
+    }
+    const cols = sort.split(',');
+    const orderBy = [];
+    cols.forEach(dataKey => {
+        const temp = keyInFields(dataKey, fields);
+        if (temp) {
+            if (dataKey.startsWith('-')) {
+                orderBy.push(`${temp.key} DESC`);
+            } else {
+                orderBy.push(`${temp.key} ASC`);
+            }
+        }
+    });
+    if (orderBy.length > 0) {
+        return ' ORDER BY ' + orderBy.join(', ');
+    }
+    return null;
+}
+
+/**
+ * 
+ * @param {Array<{key:string,type:('TEXT'|'NUMBER'|'DOUBLE'|'BLOB'),primaryKey:boolean,unique:boolean,required:boolean}>} fields 
+ * @param {*} filter 
+ */
+function whereClause(fields, filter) {
+    if (!filter) {
+        return null;
+    }
+    if (typeof filter === 'string') {
+        filter = JSON.parse(filter);
+    }
+    const cols = sort.split(',');
+    const orderBy = [];
+    cols.forEach(dataKey => {
+        const temp = keyInFields(dataKey, fields);
+        if (temp) {
+            if (dataKey.startsWith('-')) {
+                orderBy.push(`${temp.key} DESC`);
+            } else {
+                orderBy.push(`${temp.key} ASC`);
+            }
+        }
+    });
+    if (orderBy.length > 0) {
+        return ' WHERE ' + orderBy.join(', ');
+    }
+    return null;
+}
+
+/**
+ * 
+ * @param {number} count 
+ * @param {number} page 
+ */
+function limitClause(count, page) {
+    if (count == -1) {
+        return null;
+    }
+    if (!count) {
+        count = 30;
+    }
+    if (!page) {
+        page = 1;
+    }
+    return ` LIMIT ${count} OFFSET ${(page - 1) * count}`;
+}
+
 module.exports.createTableStatement = createTableStatement;
 module.exports.insertStatement = insertStatement;
 module.exports.updateStatement = updateStatement;
+module.exports.selectClause = selectClause;
+module.exports.orderByClause = orderByClause;
+module.exports.whereClause = whereClause;
+module.exports.limitClause = limitClause;
