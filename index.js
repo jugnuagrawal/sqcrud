@@ -52,7 +52,7 @@ function cruder(config) {
 
     /**
      *
-     * @param {{count:number,page:number,select:string,filter:any,sort:string}} [options] Get API options
+     * @param {{count:number,page:number,select:string,filter:any,sort:string,unscape:boolean}} [options] Get API options
      */
     function list(options) {
         return new Promise((resolve, reject) => {
@@ -80,7 +80,11 @@ function cruder(config) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(rows);
+                    if (options.unscape) {
+                        resolve(utils.unscapeData(rows));
+                    } else {
+                        resolve(rows);
+                    }
                 }
             });
         });
@@ -88,20 +92,24 @@ function cruder(config) {
     /**
      * 
      * @param {string} id ID if the record to get details
-     * @param {string} [select] Select fewer fields
+     * @param {{select:string,unscape:boolean}} [options] Get API options
      */
-    function get(id, select) {
+    function get(id, options) {
         return new Promise((resolve, reject) => {
             if (!id) {
                 reject({ message: 'No id provided to get record' });
                 return;
             }
-            const selectClause = utils.selectClause(config.fields, select) || '*';
+            const selectClause = utils.selectClause(config.fields, options.select) || '*';
             db.get(`SELECT ${selectClause} FROM ${config.tableName} WHERE _id='${id}'`, function (err, row) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(row);
+                    if (options.unscape) {
+                        resolve(utils.unscapeData(row));
+                    } else {
+                        resolve(row);
+                    }
                 }
             });
         });
@@ -217,7 +225,8 @@ function express(config) {
             select: req.query.select,
             count: req.query.count,
             page: req.query.page,
-            sort: req.query.sort
+            sort: req.query.sort,
+            unscape: req.query.unscape
         };
         if (req.query && req.query.countOnly) {
             method = 'count';
@@ -230,7 +239,10 @@ function express(config) {
         });
     });
     router.get('/:id', (req, res) => {
-        crud.get(req.params.id, req.query.select).then(row => {
+        crud.get(req.params.id, {
+            select: req.query.select,
+            unscape: req.query.unscape
+        }).then(row => {
             res.status(200).json(row);
         }).catch(err => {
             res.status(500).json(err);

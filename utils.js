@@ -200,6 +200,21 @@ function limitClause(count, page) {
     return ` LIMIT ${count} OFFSET ${(page - 1) * count}`;
 }
 
+/**
+ * 
+ * @param {*} data 
+ */
+function unscapeData(data) {
+    if(Array.isArray(data)){
+        data.forEach(row => {
+            Object.keys(row).forEach(key => row[key] = unescape(row[key]));
+        });
+    } else {
+        Object.keys(data).forEach(key => data[key] = unescape(data[key]));
+    }
+    return data;
+}
+
 module.exports.createTableStatement = createTableStatement;
 module.exports.insertStatement = insertStatement;
 module.exports.updateStatement = updateStatement;
@@ -207,3 +222,4 @@ module.exports.selectClause = selectClause;
 module.exports.orderByClause = orderByClause;
 module.exports.whereClause = whereClause;
 module.exports.limitClause = limitClause;
+module.exports.unscapeData = unscapeData;
