@@ -1,6 +1,7 @@
 node_modules
 db
 .DS_Store
+.vscode
 test.js
 app.test.js
 launch.json
