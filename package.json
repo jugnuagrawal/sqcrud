@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/jugnuagrawal/sqcrud#readme",
   "dependencies": {
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "mkdirp": "^0.5.1",
     "sqlite3": "^4.0.8",
     "unique-token": "^1.1.0",
